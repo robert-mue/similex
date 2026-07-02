@@ -1,0 +1,39 @@
+/**
+ * `similex.notepad` — a free-text scratch area. `notepad('text')` gets/sets the
+ * content; emits `notepadchange` on input.
+ */
+import $ from '../core/widget-base.js';
+
+$.widget('similex.notepad', {
+  options: {
+    text: '',
+    placeholder: 'Type here…',
+  },
+
+  _create() {
+    this.element.addClass('slx-notepad');
+    this._area = $('<textarea class="slx-notepad-area">')
+      .attr('placeholder', this.options.placeholder)
+      .val(this.options.text)
+      .appendTo(this.element);
+
+    this._on(this._area, {
+      input: () => this._trigger('change', null, { text: this._area.val() }),
+    });
+  },
+
+  /** get (no arg) or set the text */
+  text(value) {
+    if (value === undefined) {
+      return this._area.val();
+    }
+    this._area.val(value);
+    return this;
+  },
+
+  _destroy() {
+    this.element.removeClass('slx-notepad').empty();
+  },
+});
+
+export default 'notepad';
