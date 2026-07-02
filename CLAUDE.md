@@ -27,7 +27,9 @@ two don't fight. Lint for correctness, format for style.
 
 Entry: `index.html` loads `src/main.js`, which constructs an `App` on `#app`.
 
-- `src/core/widget-base.js` — **import `$` from here**, never straight from `'jquery'`. It attaches the jQuery UI widget factory (only `jquery-ui/ui/widget.js`, not the full UI bundle) so every module shares one jQuery instance with `$.widget` available.
+- `src/core/jquery-global.js` — installs the global `jQuery`/`$`. jQuery UI 1.13's UMD wrapper falls through to `factory(jQuery)` (a *global* reference) under Vite's ESM bundling, so this must load before any `jquery-ui/*` import or you get `jQuery is not defined`. Imported first by `widget-base.js`; don't import a jquery-ui file ahead of it.
+- `src/core/widget-base.js` — **import `$` from here**, never straight from `'jquery'`. Imports `jquery-global.js` then attaches the jQuery UI widget factory (only `jquery-ui/ui/widget.js`, not the full UI bundle) so every module shares one jQuery instance with `$.widget` available.
+- `src/core/draggable-base.js` — loads jQuery UI `draggable` **plus its dependency chain** (`mouse`, `data`, `plugin`, `scroll-parent`, `version`). jQuery UI's UMD build doesn't resolve its own inter-module deps when a single file is imported, so importing `draggable.js` alone throws `Cannot read properties of undefined (reading 'mouse')`. Any code needing a jQuery UI interaction widget should follow this pattern: import the full dep chain in order after `widget-base.js`.
 - `src/core/app.js` — `App` composes the menu and workspace into the root element; exposes `setMenu`, `addPanel`, `clearWorkspace`.
 - `src/core/menu.js` — `similex.menu` widget. Customisable, config-driven: an `items` array of `{ label, onSelect?, items? }` (nested `items` = submenu).
 - `src/core/workspace.js` — `similex.workspace` widget. Manages panels; `addPanel({ title, widget, options })` creates a panel and instantiates the named content widget into it.

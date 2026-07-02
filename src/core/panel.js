@@ -7,8 +7,7 @@
  *   $el.panel('content');        // -> jQuery of the content element
  *   $el.panel('title', 'New');   // get/set the title
  */
-import $ from './widget-base.js';
-import 'jquery-ui/ui/widgets/draggable.js';
+import $ from './draggable-base.js';
 
 $.widget('similex.panel', {
   options: {
