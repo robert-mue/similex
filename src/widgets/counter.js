@@ -38,6 +38,11 @@ $.widget('similex.counter', {
     return this._count;
   },
 
+  /** Serialisable state for persistence (restored via the `start` option). */
+  state() {
+    return { start: this._count };
+  },
+
   _bump(delta) {
     this._count += delta;
     this._render();

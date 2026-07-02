@@ -42,5 +42,8 @@ app.setMenu([
   },
 ]);
 
+// Restore any panels saved from a previous session.
+app.restore();
+
 // Handy for tinkering from the browser console.
 globalThis.app = app;

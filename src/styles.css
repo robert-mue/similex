@@ -126,24 +126,156 @@ body {
 .slx-panel-title {
   font-weight: 600;
   font-size: 14px;
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
-.slx-panel-close {
+.slx-panel-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+}
+
+.slx-panel-btn {
   background: none;
   border: 0;
   color: inherit;
-  font-size: 18px;
+  width: 22px;
+  height: 20px;
+  padding: 0;
   line-height: 1;
   cursor: pointer;
-  padding: 0 4px;
+  border-radius: 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.slx-panel-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .slx-panel-close:hover {
-  color: var(--slx-accent);
+  background: #e03131;
+  color: #fff;
+}
+
+/* Button glyphs (drawn in CSS so no icon font is needed). */
+.slx-panel-min::before {
+  content: '';
+  width: 10px;
+  height: 2px;
+  background: currentColor;
+}
+
+.slx-panel-max::before {
+  content: '';
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid currentColor;
+  border-radius: 1px;
+}
+
+.slx-panel-max.slx-panel-restore::before {
+  width: 7px;
+  height: 7px;
+  box-shadow: 3px -3px 0 -1.5px currentColor;
+}
+
+.slx-panel-close::before {
+  content: '\00d7';
+  font-size: 17px;
 }
 
 .slx-panel-content {
   padding: 16px;
+  flex: 1;
+  overflow: auto;
+}
+
+/* Minimised: collapse to just the titlebar. */
+.slx-panel--minimized .slx-panel-content {
+  display: none;
+}
+
+/* Maximised: square off the corners. */
+.slx-panel--maximized {
+  border-radius: 0;
+}
+
+/* Resizable handles. jQuery UI needs these to place/size the grab zones;
+   without them (normally from jquery-ui.css) resizing silently doesn't work.
+   Handles sit inside the panel edges so the panel can keep overflow:hidden. */
+.ui-resizable-handle {
+  position: absolute;
+  display: block;
+  font-size: 0.1px;
+  touch-action: none;
+  z-index: 2;
+}
+.slx-panel--minimized .ui-resizable-handle,
+.slx-panel--maximized .ui-resizable-handle {
+  display: none;
+}
+.ui-resizable-n {
+  cursor: n-resize;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 6px;
+}
+.ui-resizable-s {
+  cursor: s-resize;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 6px;
+}
+.ui-resizable-e {
+  cursor: e-resize;
+  right: 0;
+  top: 0;
+  height: 100%;
+  width: 6px;
+}
+.ui-resizable-w {
+  cursor: w-resize;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 6px;
+}
+.ui-resizable-se {
+  cursor: se-resize;
+  right: 0;
+  bottom: 0;
+  width: 14px;
+  height: 14px;
+  background: linear-gradient(135deg, transparent 50%, rgba(0, 0, 0, 0.25) 50%);
+}
+.ui-resizable-sw {
+  cursor: sw-resize;
+  left: 0;
+  bottom: 0;
+  width: 12px;
+  height: 12px;
+}
+.ui-resizable-ne {
+  cursor: ne-resize;
+  right: 0;
+  top: 0;
+  width: 12px;
+  height: 12px;
+}
+.ui-resizable-nw {
+  cursor: nw-resize;
+  left: 0;
+  top: 0;
+  width: 12px;
+  height: 12px;
 }
 
 /* Example widgets ------------------------------------------------------- */

@@ -35,6 +35,11 @@ $.widget('similex.colorpicker', {
     return this;
   },
 
+  /** Serialisable state for persistence. */
+  state() {
+    return { value: this.options.value };
+  },
+
   _apply(value) {
     this.options.value = value;
     this._swatch.css('background', value);

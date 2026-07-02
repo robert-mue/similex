@@ -31,6 +31,11 @@ $.widget('similex.notepad', {
     return this;
   },
 
+  /** Serialisable state for persistence. */
+  state() {
+    return { text: this._area.val() };
+  },
+
   _destroy() {
     this.element.removeClass('slx-notepad').empty();
   },

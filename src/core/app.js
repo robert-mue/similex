@@ -1,10 +1,12 @@
 /**
  * App — composes the SPA out of a customisable menu and a panel workspace,
- * both mounted inside a single root element.
+ * both mounted inside a single root element. Persists the workspace to
+ * localStorage on every change and can restore it.
  */
 import $ from './widget-base.js';
 import './menu.js';
 import './workspace.js';
+import { save, load } from './persistence.js';
 
 export class App {
   /**
@@ -18,7 +20,7 @@ export class App {
       .menu({ items });
     this.$workspace = $('<div class="slx-app-workspace">')
       .appendTo(this.$root)
-      .workspace();
+      .workspace({ onChange: () => this._persist() });
   }
 
   /** Replace the menu items. */
@@ -32,9 +34,26 @@ export class App {
     return this.$workspace.workspace('addPanel', config);
   }
 
-  /** Remove every open panel. */
+  /** Remove every open panel (also clears the persisted state). */
   clearWorkspace() {
     this.$workspace.workspace('clear');
     return this;
+  }
+
+  /**
+   * Restore the workspace from localStorage, if anything was saved.
+   * @returns {Promise<boolean>} whether panels were restored
+   */
+  async restore() {
+    const state = load();
+    if (state && state.length) {
+      await this.$workspace.workspace('restore', state);
+      return true;
+    }
+    return false;
+  }
+
+  _persist() {
+    save(this.$workspace.workspace('serialize'));
   }
 }

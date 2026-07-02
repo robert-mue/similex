@@ -27,13 +27,14 @@ two don't fight. Lint for correctness, format for style.
 
 Entry: `index.html` loads `src/main.js`, which constructs an `App` on `#app`.
 
-- `src/core/jquery-global.js` — installs the global `jQuery`/`$`. jQuery UI 1.13's UMD wrapper falls through to `factory(jQuery)` (a *global* reference) under Vite's ESM bundling, so this must load before any `jquery-ui/*` import or you get `jQuery is not defined`. Imported first by `widget-base.js`; don't import a jquery-ui file ahead of it.
+- `src/core/jquery-global.js` — installs the global `jQuery`/`$`. jQuery UI 1.13's UMD wrapper falls through to `factory(jQuery)` (a _global_ reference) under Vite's ESM bundling, so this must load before any `jquery-ui/*` import or you get `jQuery is not defined`. Imported first by `widget-base.js`; don't import a jquery-ui file ahead of it.
 - `src/core/widget-base.js` — **import `$` from here**, never straight from `'jquery'`. Imports `jquery-global.js` then attaches the jQuery UI widget factory (only `jquery-ui/ui/widget.js`, not the full UI bundle) so every module shares one jQuery instance with `$.widget` available.
-- `src/core/draggable-base.js` — loads jQuery UI `draggable` **plus its dependency chain** (`mouse`, `data`, `plugin`, `scroll-parent`, `version`). jQuery UI's UMD build doesn't resolve its own inter-module deps when a single file is imported, so importing `draggable.js` alone throws `Cannot read properties of undefined (reading 'mouse')`. Any code needing a jQuery UI interaction widget should follow this pattern: import the full dep chain in order after `widget-base.js`.
-- `src/core/app.js` — `App` composes the menu and workspace into the root element; exposes `setMenu`, `addPanel`, `clearWorkspace`.
+- `src/core/interactions.js` — loads jQuery UI `draggable` **and** `resizable` **plus their shared dependency chain** (`mouse`, `data`, `plugin`, `scroll-parent`, `disable-selection`, `version`). jQuery UI's UMD build doesn't resolve its own inter-module deps when a single file is imported, so importing `draggable.js`/`resizable.js` alone throws `Cannot read properties of undefined (reading 'mouse')`. Any code needing a jQuery UI interaction widget imports from here (chain in dependency order after `widget-base.js`). NOTE: resizable also needs handle-placement CSS — we ship minimal rules in `styles.css`; without them resizing silently no-ops.
+- `src/core/app.js` — `App` composes the menu and workspace into the root element; exposes `setMenu`, `addPanel`, `clearWorkspace`, `restore`. Persists the workspace to localStorage on every workspace change (`onChange`).
 - `src/core/menu.js` — `similex.menu` widget. Customisable, config-driven: an `items` array of `{ label, onSelect?, items? }` (nested `items` = submenu).
-- `src/core/workspace.js` — `similex.workspace` widget. Manages panels; `addPanel({ title, widget, options })` creates a panel and instantiates the named content widget into it.
-- `src/core/panel.js` — `similex.panel` widget = titlebar (title + close) + content div. `panel('content')` returns the content element. Draggable by its titlebar (jQuery UI `draggable`, loaded per-panel), and reports `onFocus` so the workspace can raise it. Panels are free-floating (absolutely positioned); the workspace cascades new ones and manages z-order.
+- `src/core/workspace.js` — `similex.workspace` widget. Manages panels; `addPanel({ title, widget, options, geometry, minimized, maximized })` creates a panel and instantiates the named content widget. Keeps a metadata entry per panel so `serialize()`/`restore()` can round-trip the whole workspace; fires `onChange` on any add/remove/move/resize/min/maximise (suspended during `restore`).
+- `src/core/panel.js` — `similex.panel` widget = titlebar (title + minimise/maximise/close controls) + content div. `panel('content')` returns the content element. Draggable by its titlebar and resizable (from `interactions.js`); supports `minimize`/`maximize` toggles and tracks its "normal" `geometry()` (position+size when neither min nor max) for restore/persist. Free-floating (absolutely positioned); reports `onFocus` (raise) and `onChange` (persist). Button glyphs are pure CSS (no icon font).
+- `src/core/persistence.js` — guarded localStorage read/write of the serialised workspace under a versioned key; degrades to no-op if storage is unavailable.
 - `src/core/widget-registry.js` — maps a widget name to a lazy `() => import(...)` loader. `loadWidget(name)` dynamically imports the module and returns its jQuery UI plugin method name. No jQuery dependency itself, so it's unit-testable in a node env.
 - `src/widgets/index.js` — registers the built-in content widgets' loaders.
 - `src/widgets/*.js` — content widgets: `clock`, `hello`, `counter`, `notepad`, `colorpicker`.
@@ -41,6 +42,8 @@ Entry: `index.html` loads `src/main.js`, which constructs an `App` on `#app`.
 ### Content widget contract
 
 A content widget module must (1) register itself via `$.widget('similex.<name>', {...})` using `$` from `widget-base.js`, and (2) `export default '<name>'` — the jQuery UI plugin method name the registry invokes on the panel's content element. Register its lazy loader in `src/widgets/index.js`.
+
+For persistence, a widget MAY implement a `state()` method returning a plain, JSON-serialisable object. On save it's merged into the panel's stored `options`; on restore the merged options are passed back to the widget's constructor, so `state()` keys must be constructor option names (e.g. counter returns `{ start }`, notepad returns `{ text }`). Widgets without `state()` just restore from their original options.
 
 ### Conventions
 
