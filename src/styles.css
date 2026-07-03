@@ -97,6 +97,10 @@ body {
 .slx-app-workspace {
   flex: 1;
   position: relative;
+  /* Own stacking context (paired with .slx-app-menu's higher z-index) so
+     panels are contained here and can never paint above the menu, no matter
+     how high their z-index climbs. */
+  z-index: 1;
   overflow: hidden;
   background: #f4f5f8;
   background-image: radial-gradient(#dfe1e8 1px, transparent 1px);
