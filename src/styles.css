@@ -79,6 +79,12 @@ body {
   display: block;
 }
 
+/* After a selection: keep the submenu closed until the pointer leaves the
+   top-level item, even though it's still hovered. */
+.slx-menu-item.slx-suppress > .slx-submenu {
+  display: none;
+}
+
 .slx-submenu .slx-menu-label {
   display: block;
   width: 100%;

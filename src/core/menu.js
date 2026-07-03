@@ -23,6 +23,15 @@ $.widget('similex.menu', {
     this.element.addClass('slx-menu');
     this._listEl = $('<ul class="slx-menu-list">').appendTo(this.element);
     this._render();
+
+    // Submenus open on hover/focus (CSS). After a selection we mark the
+    // top-level item so its submenu is suppressed; moving the pointer off
+    // that item clears the mark so hover works again next time.
+    this._on(this._listEl, {
+      'mouseleave > .slx-menu-item': function (event) {
+        $(event.currentTarget).removeClass('slx-suppress');
+      },
+    });
   },
 
   /** get (no arg) or replace the menu items */
@@ -58,6 +67,12 @@ $.widget('similex.menu', {
       this._on($label, {
         click: (event) => {
           event.preventDefault();
+          // Close the menu: suppress the enclosing top-level item's submenu
+          // and drop focus so :focus-within doesn't keep it open.
+          $label
+            .closest('.slx-menu-list > .slx-menu-item')
+            .addClass('slx-suppress');
+          $label.trigger('blur');
           item.onSelect(item, this);
         },
       });
