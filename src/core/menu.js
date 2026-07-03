@@ -10,9 +10,9 @@
  *   $('<div>').menu({ items: [{ label: 'Clock', onSelect: () => {...} }] });
  *   $menu.menu('items', newItems);   // replace items
  *   $menu.menu('addItem', item);     // append one
+ *
+ * Classic script: uses the global jQuery (`$`); no imports/exports.
  */
-import $ from './widget-base.js';
-
 $.widget('similex.menu', {
   options: {
     /** @type {Array<{ label: string, onSelect?: Function, items?: Array }>} */
@@ -76,5 +76,3 @@ $.widget('similex.menu', {
     this.element.removeClass('slx-menu').empty();
   },
 });
-
-export default 'menu';

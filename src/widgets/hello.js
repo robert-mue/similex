@@ -1,8 +1,8 @@
 /**
  * `similex.hello` — a minimal example content widget.
+ *
+ * Classic script, injected on demand by the widget registry.
  */
-import $ from '../core/widget-base.js';
-
 $.widget('similex.hello', {
   options: {
     name: 'world',
@@ -27,4 +27,4 @@ $.widget('similex.hello', {
   },
 });
 
-export default 'hello';
+window.Similex.widgetRegistry._loaded('hello', 'hello');

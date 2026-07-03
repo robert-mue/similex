@@ -1,9 +1,9 @@
 /**
  * `similex.notepad` — a free-text scratch area. `notepad('text')` gets/sets the
  * content; emits `notepadchange` on input.
+ *
+ * Classic script, injected on demand by the widget registry.
  */
-import $ from '../core/widget-base.js';
-
 $.widget('similex.notepad', {
   options: {
     text: '',
@@ -41,4 +41,4 @@ $.widget('similex.notepad', {
   },
 });
 
-export default 'notepad';
+window.Similex.widgetRegistry._loaded('notepad', 'notepad');

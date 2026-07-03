@@ -1,15 +1,21 @@
 /**
- * Built-in content widgets. Each is registered with a lazy loader so the
- * widget's code (and jQuery UI dependency) is only fetched when first opened.
+ * Registers the built-in content widgets with the registry, mapping each name
+ * to the URL of its script (relative to index.html). The scripts themselves are
+ * NOT loaded here — the registry injects them on demand the first time a widget
+ * is opened, so widget code is only fetched when needed.
  *
  * To add a widget: create `src/widgets/<name>.js` that calls
- * `$.widget('similex.<name>', {...})` and `export default '<name>'`, then
- * register its loader here.
+ * `$.widget('similex.<name>', {...})` and, at the end,
+ * `Similex.widgetRegistry._loaded('<name>', '<name>')`; then register it here.
+ *
+ * Classic script; no imports/exports.
  */
-import { registerWidget } from '../core/widget-registry.js';
-
-registerWidget('clock', () => import('./clock.js'));
-registerWidget('hello', () => import('./hello.js'));
-registerWidget('counter', () => import('./counter.js'));
-registerWidget('notepad', () => import('./notepad.js'));
-registerWidget('colorpicker', () => import('./colorpicker.js'));
+(function (Similex) {
+  'use strict';
+  var reg = Similex.widgetRegistry;
+  reg.register('clock', 'src/widgets/clock.js');
+  reg.register('hello', 'src/widgets/hello.js');
+  reg.register('counter', 'src/widgets/counter.js');
+  reg.register('notepad', 'src/widgets/notepad.js');
+  reg.register('colorpicker', 'src/widgets/colorpicker.js');
+})(window.Similex);

@@ -4,48 +4,44 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-**similex** is a jQuery-based single-page app: a customisable **menu** plus a **workspace** that holds **panels**, where each panel hosts a **content widget** built with the jQuery UI widget factory. Content widgets are loaded dynamically. Bundled with Vite; tests run on Vitest.
+**similex** is a **static** jQuery single-page app: a customisable **menu** plus a **workspace** that holds **panels**, where each panel hosts a **content widget** built with the jQuery UI widget factory. Content widgets are loaded dynamically.
 
-## Commands
+There is **no build step, no server, and no npm**. It runs by opening `index.html` directly (`file://`). Everything is plain classic `<script>` tags — **no ES modules, no imports/exports** — because browsers block ES modules and `fetch`/`import()` over `file://`.
 
-Requires Node.js 18+ and a one-time `npm install`.
+## Running
 
-- `npm run dev` — start the Vite dev server (hot reload)
-- `npm run build` — production build to `dist/`
-- `npm run preview` — serve the production build locally
-- `npm test` — run the test suite once (`vitest run`)
-- `npm run test:watch` — watch mode
-- Run a single test file: `npx vitest run src/core/widget-registry.test.js`
-- Filter by test name: `npx vitest run -t "unknown"`
-- `npm run lint` / `npm run lint:fix` — ESLint (flat config, `eslint.config.js`)
-- `npm run format` / `npm run format:check` — Prettier
+Open `index.html` in a browser (double-click, or `google-chrome index.html`). That's it. Any static file host works too, but none is required.
 
-Prettier owns formatting; ESLint is configured with `eslint-config-prettier` so the
-two don't fight. Lint for correctness, format for style.
+There are no automated tests/lint/build commands — the tooling was intentionally removed. Verify changes by opening the page and using it; check the devtools console for errors.
+
+## Key constraints (why it's built this way)
+
+- **Classic scripts only.** No `import`/`export`. Modules communicate through the single global `window.Similex` (see `src/core/namespace.js`). jQuery is the global `$`/`jQuery` from the vendored scripts.
+- **Load order matters.** `index.html` lists scripts in dependency order: vendored jQuery → vendored jQuery UI → `namespace` → `persistence` → `widget-registry` → `panel` → `workspace` → `menu` → `app` → `widgets/index` → `main`. Content-widget scripts are **not** listed; they're injected on demand.
+- **Dynamic widget loading = `<script>` injection**, not `import()`. `import()` is blocked over `file://`; injecting a classic `<script>` tag works. This is how the "widgets load dynamically" requirement is met.
 
 ## Architecture
 
-Entry: `index.html` loads `src/main.js`, which constructs an `App` on `#app`.
+`index.html` loads the scripts, then `src/main.js` constructs a `Similex.App` on `#app`.
 
-- `src/core/jquery-global.js` — installs the global `jQuery`/`$`. jQuery UI 1.13's UMD wrapper falls through to `factory(jQuery)` (a _global_ reference) under Vite's ESM bundling, so this must load before any `jquery-ui/*` import or you get `jQuery is not defined`. Imported first by `widget-base.js`; don't import a jquery-ui file ahead of it.
-- `src/core/widget-base.js` — **import `$` from here**, never straight from `'jquery'`. Imports `jquery-global.js` then attaches the jQuery UI widget factory (only `jquery-ui/ui/widget.js`, not the full UI bundle) so every module shares one jQuery instance with `$.widget` available.
-- `src/core/interactions.js` — loads jQuery UI `draggable` **and** `resizable` **plus their shared dependency chain** (`mouse`, `data`, `plugin`, `scroll-parent`, `disable-selection`, `version`). jQuery UI's UMD build doesn't resolve its own inter-module deps when a single file is imported, so importing `draggable.js`/`resizable.js` alone throws `Cannot read properties of undefined (reading 'mouse')`. Any code needing a jQuery UI interaction widget imports from here (chain in dependency order after `widget-base.js`). NOTE: resizable also needs handle-placement CSS — we ship minimal rules in `styles.css`; without them resizing silently no-ops.
-- `src/core/app.js` — `App` composes the menu and workspace into the root element; exposes `setMenu`, `addPanel`, `clearWorkspace`, `restore`. Persists the workspace to localStorage on every workspace change (`onChange`).
-- `src/core/menu.js` — `similex.menu` widget. Customisable, config-driven: an `items` array of `{ label, onSelect?, items? }` (nested `items` = submenu).
-- `src/core/workspace.js` — `similex.workspace` widget. Manages panels; `addPanel({ title, widget, options, geometry, minimized, maximized })` creates a panel and instantiates the named content widget. Keeps a metadata entry per panel so `serialize()`/`restore()` can round-trip the whole workspace; fires `onChange` on any add/remove/move/resize/min/maximise (suspended during `restore`).
-- `src/core/panel.js` — `similex.panel` widget = titlebar (title + minimise/maximise/close controls) + content div. `panel('content')` returns the content element. Draggable by its titlebar and resizable (from `interactions.js`); supports `minimize`/`maximize` toggles and tracks its "normal" `geometry()` (position+size when neither min nor max) for restore/persist. Free-floating (absolutely positioned); reports `onFocus` (raise) and `onChange` (persist). Button glyphs are pure CSS (no icon font).
-- `src/core/persistence.js` — guarded localStorage read/write of the serialised workspace under a versioned key; degrades to no-op if storage is unavailable.
-- `src/core/widget-registry.js` — maps a widget name to a lazy `() => import(...)` loader. `loadWidget(name)` dynamically imports the module and returns its jQuery UI plugin method name. No jQuery dependency itself, so it's unit-testable in a node env.
-- `src/widgets/index.js` — registers the built-in content widgets' loaders.
+- `vendor/jquery.min.js` — jQuery 3.7 (unchanged upstream).
+- `vendor/jquery-ui.js` — a concatenated subset of jQuery UI 1.13 UMD source modules (version, widget factory, mouse, data, disable-selection, plugin, scroll-parent, draggable, resizable) in dependency order. With a global jQuery present, each module's UMD wrapper calls `factory(jQuery)`. Regenerate by concatenating from a jquery-ui source checkout if the subset changes. NOTE: resizable needs handle-placement CSS — shipped in `styles.css`; without it resizing silently no-ops.
+- `src/core/namespace.js` — creates `window.Similex`.
+- `src/core/persistence.js` — `Similex.persistence`: guarded localStorage read/write of the serialised workspace under a versioned key (works on `file://`).
+- `src/core/widget-registry.js` — `Similex.widgetRegistry`: maps a widget name to its script URL; `loadWidget(name)` injects the `<script>` (once) and resolves to the jQuery UI plugin method name the widget reports via `_loaded(name, method)`.
+- `src/core/app.js` — `Similex.App` composes menu + workspace into the root; `setMenu`, `addPanel`, `clearWorkspace`, `restore`. Persists on every workspace change.
+- `src/core/menu.js` — `similex.menu` widget. Config-driven `items` array of `{ label, onSelect?, items? }` (nested `items` = submenu).
+- `src/core/workspace.js` — `similex.workspace` widget. `addPanel({ title, widget, options, geometry, minimized, maximized })`; keeps a metadata entry per panel so `serialize()`/`restore()` round-trip the whole workspace; fires `onChange` on any add/remove/move/resize/min/maximise (suspended during `restore`).
+- `src/core/panel.js` — `similex.panel` widget = titlebar (title + minimise/maximise/close) + content div. `panel('content')` returns the content element. Draggable by titlebar and resizable; `minimize`/`maximize` toggles; tracks its "normal" `geometry()` for restore/persist. Absolutely positioned; reports `onFocus` (raise) and `onChange` (persist). Button glyphs are pure CSS.
+- `src/widgets/index.js` — registers each built-in widget's script URL with the registry.
 - `src/widgets/*.js` — content widgets: `clock`, `hello`, `counter`, `notepad`, `colorpicker`.
 
 ### Content widget contract
 
-A content widget module must (1) register itself via `$.widget('similex.<name>', {...})` using `$` from `widget-base.js`, and (2) `export default '<name>'` — the jQuery UI plugin method name the registry invokes on the panel's content element. Register its lazy loader in `src/widgets/index.js`.
+A content widget script must (1) register itself via `$.widget('similex.<name>', {...})` using the global `$`, and (2) at the end call `window.Similex.widgetRegistry._loaded('<name>', '<name>')` where the second arg is the jQuery UI plugin method name to invoke on the panel's content element. Register its script URL in `src/widgets/index.js`.
 
-For persistence, a widget MAY implement a `state()` method returning a plain, JSON-serialisable object. On save it's merged into the panel's stored `options`; on restore the merged options are passed back to the widget's constructor, so `state()` keys must be constructor option names (e.g. counter returns `{ start }`, notepad returns `{ text }`). Widgets without `state()` just restore from their original options.
+For persistence, a widget MAY implement a `state()` method returning a plain, JSON-serialisable object. On save it's merged into the panel's stored `options`; on restore the merged options are passed back to the widget's constructor, so `state()` keys must be constructor option names (e.g. counter returns `{ start }`, notepad returns `{ text }`). Widgets without `state()` restore from their original options.
 
 ### Conventions
 
-- The `.menu()` / `.workspace()` / `.panel()` plugin names are safe because only the widget _factory_ is loaded, not jQuery UI's own widgets (which include `menu`). Don't import the full jQuery UI bundle without checking for name collisions.
-- Tests run in a `node` environment, so keep DOM/jQuery out of anything you want to unit-test directly (see `widget-registry.js`). Widget DOM behaviour is not currently covered by tests.
+- The `.menu()` / `.workspace()` / `.panel()` plugin names are safe because `vendor/jquery-ui.js` includes only the widget factory + draggable/resizable, not jQuery UI's own `menu` widget. If you add more of jQuery UI to the vendor bundle, check for name collisions.

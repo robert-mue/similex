@@ -1,9 +1,9 @@
 /**
  * `similex.counter` — increment/decrement counter, emits a `counterchange`
  * event whenever the value changes.
+ *
+ * Classic script, injected on demand by the widget registry.
  */
-import $ from '../core/widget-base.js';
-
 $.widget('similex.counter', {
   options: {
     start: 0,
@@ -58,4 +58,4 @@ $.widget('similex.counter', {
   },
 });
 
-export default 'counter';
+window.Similex.widgetRegistry._loaded('counter', 'counter');

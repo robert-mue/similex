@@ -1,8 +1,9 @@
 /**
  * `similex.clock` — a live clock content widget.
+ *
+ * Classic script, injected on demand by the widget registry. Uses the global
+ * jQuery (`$`); registers its plugin method name at the end.
  */
-import $ from '../core/widget-base.js';
-
 $.widget('similex.clock', {
   options: {
     hour12: false,
@@ -31,4 +32,4 @@ $.widget('similex.clock', {
   },
 });
 
-export default 'clock';
+window.Similex.widgetRegistry._loaded('clock', 'clock');

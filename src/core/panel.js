@@ -13,9 +13,10 @@
  *   $el.panel('geometry');             // -> { left, top, width, height }
  *   $el.panel('minimize');             // toggle; or ('minimize', true|false)
  *   $el.panel('maximize');             // toggle; or ('maximize', true|false)
+ *
+ * Classic script: uses the global jQuery (`$`) provided by the vendored
+ * jquery.min.js + jquery-ui.js; no imports/exports.
  */
-import $ from './interactions.js';
-
 $.widget('similex.panel', {
   options: {
     title: 'Panel',
@@ -295,5 +296,3 @@ $.widget('similex.panel', {
       .empty();
   },
 });
-
-export default 'panel';

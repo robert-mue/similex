@@ -13,11 +13,10 @@
  *   const state = $ws.workspace('serialize');
  *   await $ws.workspace('restore', state);
  *   $ws.workspace('clear');
+ *
+ * Classic script: uses the global jQuery (`$`) and `Similex.widgetRegistry`;
+ * no imports/exports. Load panel.js before this file.
  */
-import $ from './widget-base.js';
-import './panel.js';
-import { loadWidget } from './widget-registry.js';
-
 $.widget('similex.workspace', {
   options: {
     /** @type {(() => void) | null} */
@@ -88,7 +87,7 @@ $.widget('similex.workspace', {
     this._entries.push(entry);
 
     if (widget) {
-      const method = await loadWidget(widget);
+      const method = await Similex.widgetRegistry.loadWidget(widget);
       entry.method = method;
       $panel.panel('content')[method]({ ...options });
     }
@@ -183,5 +182,3 @@ $.widget('similex.workspace', {
     this.element.removeClass('slx-workspace').empty();
   },
 });
-
-export default 'workspace';

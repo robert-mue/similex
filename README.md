@@ -1,20 +1,23 @@
 # similex
 
-A jQuery single-page app: a customisable menu and a workspace of panels, where
-each panel hosts a dynamically loaded jQuery UI widget.
+A static jQuery single-page app: a customisable menu and a workspace of
+draggable / resizable / minimisable / maximisable panels, where each panel hosts
+a dynamically loaded jQuery UI widget. Open panels persist across reloads.
 
-## Setup
+## Running
 
-Requires [Node.js](https://nodejs.org/) (v18+). Then:
+No build, no server, no dependencies to install. Just open the file:
 
-```sh
-npm install
+```
+Double-click index.html  (or:  google-chrome index.html)
 ```
 
-## Commands
+Everything is plain HTML/CSS/JS with vendored jQuery + jQuery UI in `vendor/`.
 
-- `npm run dev` — start the Vite dev server
-- `npm run build` — build for production into `dist/`
-- `npm run preview` — preview the production build
-- `npm test` — run the test suite once
-- `npm run test:watch` — run tests in watch mode
+## Using it
+
+- **Widgets** menu — open panels (Clock, Greeting, Counter, Notepad, Colour picker).
+- Drag panels by their titlebar; resize from any edge/corner.
+- Titlebar buttons: **—** minimise, **▢** maximise, **×** close.
+- **View ▸ Clear workspace** removes all panels.
+- Your open panels (and their contents) are saved to the browser and restored on reload.
