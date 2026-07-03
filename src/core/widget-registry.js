@@ -4,25 +4,63 @@
  *
  * Because the app runs from file:// with no bundler, dynamic loading is done by
  * INJECTING a classic <script> tag (ES `import()` is blocked over file://).
- * Each widget is registered with the URL of its script. On first use the script
- * is injected; when it runs it self-registers via `$.widget(...)` and calls
- * `Similex.widgetRegistry._loaded(name, method)` to record the jQuery UI plugin
- * method name to invoke on a panel's content element.
+ * Each widget is registered with the URL of its script plus the presentation
+ * metadata used to build the menu (label, panel title, default options), so the
+ * registry is the single source of truth for "which widgets exist". On first
+ * use the script is injected; when it runs it self-registers via `$.widget(...)`
+ * and calls `Similex.widgetRegistry._loaded(name, method)` to record the jQuery
+ * UI plugin method name to invoke on a panel's content element.
  */
 (function (Similex) {
   'use strict';
 
-  var registry = {}; // name -> { src, method, promise }
+  var registry = {}; // name -> { src, label, title, options, method, promise }
+  var order = []; // registration order, for stable menu ordering
 
   Similex.widgetRegistry = {
-    /** @param {string} name @param {string} src script URL, relative to index.html */
-    register: function (name, src) {
-      registry[name] = { src: src, method: null, promise: null };
+    /**
+     * @param {string} name
+     * @param {{ src: string, label?: string, title?: string, options?: object }} spec
+     *   src    — widget script URL, relative to index.html
+     *   label  — menu label (default: name)
+     *   title  — panel titlebar text (default: label)
+     *   options — default options passed to the widget (default: {})
+     */
+    register: function (name, spec) {
+      spec = spec || {};
+      if (!registry[name]) {
+        order.push(name);
+      }
+      registry[name] = {
+        src: spec.src,
+        label: spec.label || name,
+        title: spec.title || spec.label || name,
+        options: spec.options || {},
+        method: null,
+        promise: null,
+      };
     },
 
-    /** @returns {string[]} names of all registered widgets */
+    /** @returns {string[]} names of all registered widgets, in registration order */
     names: function () {
-      return Object.keys(registry);
+      return order.slice();
+    },
+
+    /**
+     * @returns {Array<{name:string, label:string, title:string, options:object}>}
+     *   the presentation metadata for every widget, in registration order —
+     *   enough to build a menu without hardcoding the widget list elsewhere.
+     */
+    list: function () {
+      return order.map(function (name) {
+        var e = registry[name];
+        return {
+          name: name,
+          label: e.label,
+          title: e.title,
+          options: e.options,
+        };
+      });
     },
 
     /** Called by a widget script once loaded, to record its plugin method name. */
