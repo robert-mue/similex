@@ -29,6 +29,8 @@ body {
 
 /* Menu ------------------------------------------------------------------ */
 .slx-app-menu {
+  position: relative;
+  z-index: 1000;
   background: var(--slx-menu-bg);
   color: var(--slx-menu-fg);
 }
