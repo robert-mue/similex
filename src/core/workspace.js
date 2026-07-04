@@ -35,7 +35,7 @@ $.widget('similex.workspace', {
   /**
    * @param {{ title?: string, widget?: string, options?: object,
    *           closable?: boolean, draggable?: boolean, resizable?: boolean,
-   *           minimizable?: boolean, maximizable?: boolean,
+   *           minimizable?: boolean, maximizable?: boolean, context?: object,
    *           geometry?: object, minimized?: boolean, maximized?: boolean }} config
    * @returns {Promise<JQuery>} the panel element
    */
@@ -49,6 +49,7 @@ $.widget('similex.workspace', {
       resizable = true,
       minimizable = true,
       maximizable = true,
+      context = {},
       geometry,
       minimized = false,
       maximized = false,
@@ -62,6 +63,7 @@ $.widget('similex.workspace', {
       resizable,
       minimizable,
       maximizable,
+      context,
       onClose: () => {
         this._forget($panel);
         this._emitChange();
@@ -105,8 +107,8 @@ $.widget('similex.workspace', {
   },
 
   /**
-   * Snapshot every panel (widget, title, merged options + widget state,
-   * geometry, min/max flags) as a plain, JSON-serialisable array.
+   * Snapshot every panel (widget, title, context, merged options + widget
+   * state, geometry, min/max flags) as a plain, JSON-serialisable array.
    */
   serialize() {
     return this._entries
@@ -120,6 +122,7 @@ $.widget('similex.workspace', {
         return {
           widget: e.widget,
           title: e.title,
+          context: e.$panel.panel('context'),
           options: { ...e.options, ...state },
           geometry: e.$panel.panel('geometry'),
           minimized: e.$panel.panel('minimized'),

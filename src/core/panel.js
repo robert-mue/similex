@@ -25,11 +25,19 @@ $.widget('similex.panel', {
     resizable: true,
     minimizable: true,
     maximizable: true,
+    /**
+     * An opaque reference object naming the "thing" this panel is a view of
+     * (e.g. `{ id: 'diagram-42' }`). The panel does not interpret it; it is
+     * carried and persisted so a future pub/sub layer can scope cross-panel
+     * updates to panels sharing the same subject.
+     * @type {object}
+     */
+    context: {},
     /** @type {((panel: object) => void) | null} */
     onClose: null,
     /** Called when the panel is activated (e.g. clicked) — used to raise it. */
     onFocus: null,
-    /** Called after geometry or min/max state changes — used to persist. */
+    /** Called after geometry, min/max state, or context changes — persist hook. */
     onChange: null,
   },
 
@@ -37,6 +45,8 @@ $.widget('similex.panel', {
     this.element.addClass('slx-panel');
     this._minimized = false;
     this._maximized = false;
+    // Copy so the default {} in the prototype options isn't shared across panels.
+    this._context = $.extend({}, this.options.context);
     // height null => content-driven until the panel is resized/restored.
     this._geom = { left: 0, top: 0, width: 260, height: null };
 
@@ -135,6 +145,20 @@ $.widget('similex.panel', {
     }
     this.options.title = value;
     this._titleEl.text(value);
+    return this;
+  },
+
+  /**
+   * get (no arg) or replace the panel's context — the opaque reference object
+   * naming the "thing" this panel is a view of. Replacing it persists.
+   * @param {object} [value]
+   */
+  context(value) {
+    if (value === undefined) {
+      return this._context;
+    }
+    this._context = value || {};
+    this._emitChange();
     return this;
   },
 
