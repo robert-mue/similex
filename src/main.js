@@ -78,6 +78,13 @@
   function buildMenu() {
     return [
       { label: 'File', items: fileItems() },
+      {
+        label: 'Edit',
+        items: [
+          { label: 'Undo', onSelect: function () { Similex.history.undo(); } },
+          { label: 'Redo', onSelect: function () { Similex.history.redo(); } },
+        ],
+      },
       { label: 'Widgets', items: widgetItems },
       {
         label: 'View',
@@ -110,6 +117,24 @@
     if (sig === lastSignature) return;
     lastSignature = sig;
     app.setMenu(buildMenu());
+  });
+
+  // Keyboard: Ctrl/Cmd-Z = undo, Ctrl/Cmd-Shift-Z (or Ctrl-Y) = redo. Skip when
+  // typing in a field so native text undo keeps working there.
+  $(document).on('keydown', function (e) {
+    var tag = (e.target && e.target.tagName) || '';
+    if (/^(INPUT|TEXTAREA|SELECT)$/.test(tag) || e.target.isContentEditable) {
+      return;
+    }
+    var key = (e.key || '').toLowerCase();
+    var mod = e.ctrlKey || e.metaKey;
+    if (mod && key === 'z' && !e.shiftKey) {
+      e.preventDefault();
+      Similex.history.undo();
+    } else if (mod && (key === 'y' || (key === 'z' && e.shiftKey))) {
+      e.preventDefault();
+      Similex.history.redo();
+    }
   });
 
   // Restore any panels saved from a previous session.
