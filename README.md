@@ -21,3 +21,11 @@ Everything is plain HTML/CSS/JS with vendored jQuery + jQuery UI in `vendor/`.
 - Titlebar buttons: **—** minimise, **▢** maximise, **×** close.
 - **View ▸ Clear workspace** removes all panels.
 - Your open panels (and their contents) are saved to the browser and restored on reload.
+
+## Design & internals
+
+The app has grown a layer for **user-data models, an action log, undo/redo, and
+session replay**. For the rationale, terminology, and decisions behind it — a
+good basis for picking the project back up — see **[DESIGN.md](DESIGN.md)**.
+For module responsibilities and the script load order, see
+[CLAUDE.md](CLAUDE.md).
