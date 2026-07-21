@@ -117,7 +117,7 @@ $.widget('similex.panel', {
             this._geom.left = parseFloat(this.element.css('left')) || 0;
             this._geom.top = parseFloat(this.element.css('top')) || 0;
           }
-          this._emitChange();
+          this._emitChange({ type: 'move', payload: this.geometry() });
         },
       });
     }
@@ -131,7 +131,7 @@ $.widget('similex.panel', {
           if (!this._maximized && !this._minimized) {
             this._geom = this._readGeometry();
           }
-          this._emitChange();
+          this._emitChange({ type: 'resize', payload: this.geometry() });
         },
       });
     }
@@ -168,7 +168,7 @@ $.widget('similex.panel', {
       return this.options.ref;
     }
     this.options.ref = value || '';
-    this._emitChange();
+    this._emitChange({ type: 'ref', payload: { ref: this.options.ref } });
     return this;
   },
 
@@ -226,7 +226,7 @@ $.widget('similex.panel', {
       this._setResizableEnabled(true);
     }
     this._updateButtons();
-    this._emitChange();
+    this._emitChange({ type: 'minimize', payload: { minimized: this._minimized } });
     return this;
   },
 
@@ -248,7 +248,7 @@ $.widget('similex.panel', {
       this._setResizableEnabled(true);
     }
     this._updateButtons();
-    this._emitChange();
+    this._emitChange({ type: 'maximize', payload: { maximized: this._maximized } });
     return this;
   },
 
@@ -315,9 +315,14 @@ $.widget('similex.panel', {
     }
   },
 
-  _emitChange() {
+  /**
+   * Notify the host that something persist-worthy changed. `change` (optional)
+   * classifies the user action for the action log:
+   * `{ type: 'move'|'resize'|'minimize'|'maximize'|'ref', payload }`.
+   */
+  _emitChange(change) {
     if (typeof this.options.onChange === 'function') {
-      this.options.onChange(this);
+      this.options.onChange(this, change);
     }
   },
 

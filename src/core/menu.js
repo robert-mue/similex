@@ -73,7 +73,18 @@ $.widget('similex.menu', {
             .closest('.slx-menu-list > .slx-menu-item')
             .addClass('slx-suppress');
           $label.trigger('blur');
-          item.onSelect(item, this);
+          // Route the selection through the action dispatcher so it is logged
+          // and any userData effects it causes are captured. (Guarded so the
+          // menu still works if actions.js isn't loaded.)
+          const invoke = () => item.onSelect(item, this);
+          if (Similex.actions) {
+            Similex.actions.dispatch(
+              { type: 'menu.select', target: item.label, payload: {} },
+              invoke,
+            );
+          } else {
+            invoke();
+          }
         },
       });
     }

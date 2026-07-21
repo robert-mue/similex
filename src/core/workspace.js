@@ -30,12 +30,22 @@ $.widget('similex.workspace', {
     this._z = 0;
     this._spawnCount = 0;
     this._idCounter = 0;
-    this._suspend = false;
+    this._suspend = false; // true during restore: no onChange, no action dispatch
+    this._clearing = false; // true during clear(): suppress per-panel close actions
   },
 
   /** Mint a stable, readable panel id ('p0', 'p1', …) unique in this workspace. */
   _mintId() {
     return 'p' + this._idCounter++;
+  },
+
+  /**
+   * Dispatch a panel-level user action, unless we're mid-restore/clear or the
+   * action layer isn't loaded. Keeps all suspend logic in one place.
+   */
+  _dispatch(type, panelId, payload) {
+    if (this._suspend || this._clearing || !Similex.actions) return;
+    Similex.actions.dispatch({ type: type, target: panelId, payload: payload });
   },
 
   /**
@@ -76,10 +86,16 @@ $.widget('similex.workspace', {
       id: panelId,
       onClose: () => {
         this._forget($panel);
+        this._dispatch('panel.close', panelId, {});
         this._emitChange();
       },
       onFocus: () => this._raise($panel),
-      onChange: () => this._emitChange(),
+      onChange: (w, change) => {
+        if (change) {
+          this._dispatch('panel.' + change.type, panelId, change.payload);
+        }
+        this._emitChange();
+      },
     });
 
     if (geometry) {
@@ -107,6 +123,11 @@ $.widget('similex.workspace', {
     if (minimized) $panel.panel('minimize', true);
     if (maximized) $panel.panel('maximize', true);
 
+    this._dispatch('panel.add', panelId, {
+      widget: widget || null,
+      ref: ref,
+      title: title,
+    });
     this._emitChange();
     return $panel;
   },
@@ -162,8 +183,13 @@ $.widget('similex.workspace', {
   },
 
   clear() {
-    for (const $panel of this.panels()) {
-      $panel.panel('close');
+    this._clearing = true;
+    try {
+      for (const $panel of this.panels()) {
+        $panel.panel('close');
+      }
+    } finally {
+      this._clearing = false;
     }
     this._entries = [];
   },
