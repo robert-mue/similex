@@ -29,14 +29,21 @@ $.widget('similex.workspace', {
     this._entries = [];
     this._z = 0;
     this._spawnCount = 0;
+    this._idCounter = 0;
     this._suspend = false;
+  },
+
+  /** Mint a stable, readable panel id ('p0', 'p1', …) unique in this workspace. */
+  _mintId() {
+    return 'p' + this._idCounter++;
   },
 
   /**
    * @param {{ title?: string, widget?: string, options?: object,
    *           closable?: boolean, draggable?: boolean, resizable?: boolean,
-   *           minimizable?: boolean, maximizable?: boolean, context?: object,
-   *           geometry?: object, minimized?: boolean, maximized?: boolean }} config
+   *           minimizable?: boolean, maximizable?: boolean, ref?: string,
+   *           id?: string, geometry?: object, minimized?: boolean,
+   *           maximized?: boolean }} config
    * @returns {Promise<JQuery>} the panel element
    */
   async addPanel(config = {}) {
@@ -49,12 +56,14 @@ $.widget('similex.workspace', {
       resizable = true,
       minimizable = true,
       maximizable = true,
-      context = {},
+      ref = '',
+      id,
       geometry,
       minimized = false,
       maximized = false,
     } = config;
 
+    const panelId = id || this._mintId();
     const $panel = $('<div>').appendTo(this.element);
     $panel.panel({
       title,
@@ -63,7 +72,8 @@ $.widget('similex.workspace', {
       resizable,
       minimizable,
       maximizable,
-      context,
+      ref,
+      id: panelId,
       onClose: () => {
         this._forget($panel);
         this._emitChange();
@@ -107,7 +117,7 @@ $.widget('similex.workspace', {
   },
 
   /**
-   * Snapshot every panel (widget, title, context, merged options + widget
+   * Snapshot every panel (widget, title, id, ref, merged options + widget
    * state, geometry, min/max flags) as a plain, JSON-serialisable array.
    */
   serialize() {
@@ -122,7 +132,8 @@ $.widget('similex.workspace', {
         return {
           widget: e.widget,
           title: e.title,
-          context: e.$panel.panel('context'),
+          id: e.$panel.panel('id'),
+          ref: e.$panel.panel('ref'),
           options: { ...e.options, ...state },
           geometry: e.$panel.panel('geometry'),
           minimized: e.$panel.panel('minimized'),
@@ -135,6 +146,11 @@ $.widget('similex.workspace', {
   async restore(list) {
     this.clear();
     this._suspend = true;
+    // Seed the id counter past any restored ids so new panels can't collide.
+    for (const item of list) {
+      const m = /^p(\d+)$/.exec(item && item.id);
+      if (m) this._idCounter = Math.max(this._idCounter, Number(m[1]) + 1);
+    }
     try {
       for (const item of list) {
         await this.addPanel(item);

@@ -26,18 +26,26 @@ $.widget('similex.panel', {
     minimizable: true,
     maximizable: true,
     /**
-     * An opaque reference object naming the "thing" this panel is a view of
-     * (e.g. `{ id: 'diagram-42' }`). The panel does not interpret it; it is
-     * carried and persisted so a future pub/sub layer can scope cross-panel
-     * updates to panels sharing the same subject.
-     * @type {object}
+     * A path string addressing the "thing" this panel is a view of, keyed into
+     * `Similex.userData` (e.g. `'models/graph-2'`). The panel does not interpret
+     * it; it is carried and persisted so a future pub/sub layer can scope
+     * cross-panel updates to panels sharing the same subject.
+     * @type {string}
      */
-    context: {},
+    ref: '',
+    /**
+     * Stable identifier for this panel instance (e.g. `'p3'`). Normally assigned
+     * by the workspace and persisted. Distinct from `ref`: `id` names the panel,
+     * `ref` names what it views (several panels may share one `ref`). Used by the
+     * action log / replay to target a specific panel.
+     * @type {string}
+     */
+    id: '',
     /** @type {((panel: object) => void) | null} */
     onClose: null,
     /** Called when the panel is activated (e.g. clicked) — used to raise it. */
     onFocus: null,
-    /** Called after geometry, min/max state, or context changes — persist hook. */
+    /** Called after geometry, min/max state, or ref changes — persist hook. */
     onChange: null,
   },
 
@@ -45,8 +53,10 @@ $.widget('similex.panel', {
     this.element.addClass('slx-panel');
     this._minimized = false;
     this._maximized = false;
-    // Copy so the default {} in the prototype options isn't shared across panels.
-    this._context = $.extend({}, this.options.context);
+    // `ref` is a path string (a primitive) so needs no per-instance copy.
+    // `id` is normally supplied by the workspace; mint a collision-free fallback
+    // when the panel is created directly without one.
+    this._id = this.options.id || 'p-' + Math.random().toString(36).slice(2, 8);
     // height null => content-driven until the panel is resized/restored.
     this._geom = { left: 0, top: 0, width: 260, height: null };
 
@@ -149,17 +159,22 @@ $.widget('similex.panel', {
   },
 
   /**
-   * get (no arg) or replace the panel's context — the opaque reference object
-   * naming the "thing" this panel is a view of. Replacing it persists.
-   * @param {object} [value]
+   * get (no arg) or set the panel's `ref` — the path string addressing the
+   * "thing" this panel is a view of. Setting it persists.
+   * @param {string} [value]
    */
-  context(value) {
+  ref(value) {
     if (value === undefined) {
-      return this._context;
+      return this.options.ref;
     }
-    this._context = value || {};
+    this.options.ref = value || '';
     this._emitChange();
     return this;
+  },
+
+  /** @returns {string} this panel's stable instance id */
+  id() {
+    return this._id;
   },
 
   /** @returns {{left:number, top:number, width:number, height:number}} normal geometry */
