@@ -4,10 +4,11 @@
  *
  * When the host panel has a `ref` (opened via File ▸ New / Open) the count lives
  * in that model at `<ref>/count`, so it persists via userData and is shared by
- * any panel viewing the same model. When unbound (opened via the Widgets menu)
- * it keeps a local count persisted through the panel's `state()`/options, as
- * before. Either way each bump is dispatched as a logged `counter.change`
- * action, so the change is captured for the log and (bound) for undo.
+ * any panel viewing the same model — the counter watches its model (`_watchModel`)
+ * and re-renders when it changes, so sibling views and undo update live. When
+ * unbound (opened via the Widgets menu) it keeps a local count persisted through
+ * the panel's `state()`/options, as before. Either way each bump is dispatched
+ * as a logged `counter.change` action, captured for the log and (bound) for undo.
  *
  * Classic script, injected on demand by the widget registry.
  */
@@ -37,6 +38,17 @@ $.widget('similex.counter', $.similex.widgetBase, {
     this._on(this._decBtn, { click: () => this._bump(-this.options.step) });
     this._on(this._incBtn, { click: () => this._bump(this.options.step) });
 
+    // Bound: re-render whenever the model changes (siblings, undo, import).
+    if (this._bound()) {
+      this._watchModel(this._refresh);
+    }
+
+    this._render();
+  },
+
+  /** Re-read the count from the model and repaint (model-change handler). */
+  _refresh() {
+    this._count = this._readModel();
     this._render();
   },
 

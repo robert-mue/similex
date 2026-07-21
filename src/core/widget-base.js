@@ -16,10 +16,10 @@
  *     targeting the host panel; `run`'s userData changes are captured by the
  *     transaction (undo/replay), all for free.
  *
- * It deliberately does NOT subscribe the widget to its model. Re-rendering when
- * the *model* changes underneath the widget (so sibling panels sharing a `ref`
- * update together, and so undo shows visibly) is the separate pub/sub step —
- * added only when asked.
+ * To live-update when the *model* changes underneath it — so sibling panels
+ * sharing a `ref` stay in sync, and so undo/import show visibly — a widget opts
+ * in with one line in `_create`: `this._watchModel(this._refresh)` (see the
+ * counter pilot). Widgets that don't call it simply don't live-update.
  *
  * Classic script. Load after `actions.js`, before any widget is injected.
  */
@@ -69,6 +69,32 @@
       var r = this._ref();
       if (!r) return undefined;
       return Similex.userData.set(sub ? r + '/' + sub : r, value);
+    },
+
+    /**
+     * Live-update: call `handler` (bound to this widget) whenever this widget's
+     * model changes — i.e. any userData change at or under its `ref`. This is
+     * the pub/sub that keeps sibling panels sharing a `ref` in sync and makes
+     * undo/import visible. No-op when unbound.
+     *
+     * The subscription auto-detaches once the widget's element leaves the
+     * document (panel closed), so widgets need no explicit teardown.
+     * @returns {() => void} an unsubscribe you may also call manually
+     */
+    _watchModel: function (handler) {
+      var self = this;
+      var ref = this._ref();
+      if (!ref || !Similex.userData) {
+        return function () {};
+      }
+      var unsub = Similex.userData.subscribe(ref, function (change) {
+        if (!self.element || !self.element[0] || !self.element[0].isConnected) {
+          unsub(); // widget's node was removed — stop listening
+          return;
+        }
+        handler.call(self, change);
+      });
+      return unsub;
     },
 
     /**
