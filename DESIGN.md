@@ -1,16 +1,113 @@
-# DESIGN.md — similex logging / user-data / undo / replay
+# Design
 
-A decision record and restart guide for the layer built on top of the base
-similex SPA. `CLAUDE.md` documents *what each module is and how to work in the
-repo*; this file captures *why it's shaped this way* and *how we got here*, so a
-fresh session (human or AI) can pick up with the reasoning intact.
+A decision record and restart guide for **similex** — the whole story, from the
+base single-page app through the later user-data / logging / undo / replay layer.
+`CLAUDE.md` documents *what each module is and how to work in the repo*; this file
+captures *why it's shaped this way* and *how we got here*, so a fresh session
+(human or AI) can pick up with the reasoning intact.
 
-Status: **all planned phases 0–6 complete** (2026-07-22). Three deferred tasks
-remain — see the end.
+Status: base app complete; **all planned phases 0–6 of the data/logging layer
+complete** (2026-07-22). Three deferred tasks remain — see §14.
+
+- **Part I — The base app** (§§1–7): a static jQuery SPA of a menu + a workspace
+  of panels hosting dynamically loaded widgets.
+- **Part II — Logging, user data, undo & replay** (§§8–15): the layer that
+  captures user data, records interactions, and adds undo/redo and replay.
 
 ---
 
-## 1. What this layer is
+# Part I — The base app
+
+## 1. Concept and shape
+
+similex is a **customisable menu** plus a **workspace** that holds **panels**.
+Each panel is a titlebar + a content area, and the content is a **widget built
+with the jQuery UI widget factory**. Panels are draggable, resizable,
+minimisable, maximisable, closable, and their layout + contents persist across
+reloads. Widgets are **loaded dynamically** (only when first used).
+
+The whole thing is deliberately small and framework-free: plain jQuery, no
+front-end framework, no components beyond the jQuery UI widget factory.
+
+## 2. Why static — the constraint that shaped everything
+
+similex runs by **opening `index.html` directly** (`file://`) — **no build, no
+server, no npm**. This one requirement drove most of the base-app decisions,
+because browsers restrict `file://`:
+
+- **Classic `<script>` tags only — no ES modules, no `import`/`export`.** Browsers
+  block ES modules (and `fetch`/`import()`) over `file://`. So modules communicate
+  through a **single global `window.Similex`** namespace, and jQuery is the global
+  `$`/`jQuery` from vendored scripts.
+- **Vendored libraries.** jQuery and a hand-assembled subset of jQuery UI live in
+  `vendor/` (no package manager). The jQuery UI bundle is only the pieces needed:
+  the widget factory + mouse/data/plugin/scroll-parent helpers + **draggable** and
+  **resizable** — notably *not* jQuery UI's own `menu` widget, which is why our
+  `.menu()` / `.workspace()` / `.panel()` plugin names don't collide.
+- **`file://` still allows `localStorage`**, so persistence works without a server
+  (see §5).
+
+(Historical note: an early version used Vite/ESM and broke on double-click. The
+user clarified they wanted a *static* app from the start, and it was converted to
+classic scripts + vendored libs. Lesson baked in: the static constraint is
+primary, not incidental.)
+
+## 3. Dynamic widget loading
+
+"Widgets load dynamically" is met by **injecting a classic `<script>` tag** on
+first use — **not** `import()`, which is blocked over `file://`. When the injected
+script runs, it self-registers via `$.widget('similex.<name>', …)` and reports the
+plugin method name back to the registry. Load order in `index.html` matters and is
+dependency-ordered; content-widget scripts are the exception — they're *not*
+listed, they're injected on demand.
+
+## 4. The widget registry and manifest (DRY)
+
+`Similex.widgetRegistry` is the **single source of truth** for which widgets
+exist: each `register(name, { src, label, title, options })` records a widget's
+script URL plus its menu presentation. `src/widgets/index.js` is the **manifest** —
+the one place listing the app's widgets.
+
+A deliberate refactor: the Widgets menu is **built generically from
+`widgetRegistry.list()`**, so `main.js` holds no per-widget knowledge — adding a
+widget is a single registration in the manifest. This cleanly separates the
+*application-specific* list of widgets from the *generic* menu-building code, and
+avoids duplicating the list (DRY). The same principle later shaped the File menu
+(built from the model list) and replay (built from a handler registry).
+
+## 5. Persistence
+
+Layout persists via `Similex.persistence`: a guarded localStorage read/write of
+the serialised workspace under a versioned key. "Guarded" means a disabled / full
+/ corrupt store (or a browser restricting storage on `file://`) degrades to "no
+persistence" rather than throwing. The workspace serialises each panel (widget,
+title, geometry, min/max state, and — via a widget's optional `state()` method —
+its contents) so a reload round-trips the whole workspace.
+
+## 6. Cross-browser and vendoring notes
+
+- **jQuery UI `resizable` needs handle-placement CSS**, shipped in `styles.css` —
+  without it, resizing silently no-ops. (A trap worth remembering if the vendor
+  bundle is ever regenerated.)
+- **Firefox stacking fix.** A menu dropdown appeared *behind* panels in Firefox
+  (fine in Chrome) — a CSS stacking-context issue. Resolved by giving the menu a
+  high `z-index` and giving the workspace its own stacking context so panels are
+  contained and can never paint over the dropdown at any z-index.
+
+## 7. Content-widget contract (base)
+
+A content widget: (1) registers itself with `$.widget('similex.<name>', {…})`
+using the global `$`; (2) at the end calls
+`Similex.widgetRegistry._loaded('<name>', '<method>')`; (3) is listed in the
+manifest. Optionally it implements `state()` returning a JSON-serialisable object
+merged into the panel's stored options for persistence. Part II extends this
+contract for widgets that hold shared *user data* (see §11).
+
+---
+
+# Part II — Logging, user data, undo & replay
+
+## 8. What this layer is
 
 Three interlinked mechanisms, all meant to work **in the background** so a widget
 author barely touches them:
@@ -22,7 +119,7 @@ author barely touches them:
    tutorial.
 3. **Unlimited undo/redo.**
 
-## 2. The unifying idea
+## 9. The unifying idea
 
 Treat all three as views onto **one ordered stream of events** (event-sourcing
 *lite*). If every state change flows through a single spine:
@@ -32,7 +129,8 @@ Treat all three as views onto **one ordered stream of events** (event-sourcing
 - **undo/redo** is navigating the stream and applying inverses.
 
 Building three ad-hoc mechanisms would have them fighting each other; one spine
-makes each a small view. This is the single most important architectural call.
+makes each a small view. This is the single most important architectural call of
+Part II.
 
 ```
         user gesture
@@ -50,7 +148,7 @@ makes each a small view. This is the single most important architectural call.
       history records txn
 ```
 
-## 3. Terminology (settled deliberately)
+## 10. Terminology (settled deliberately)
 
 | term | meaning |
 |---|---|
@@ -65,7 +163,7 @@ Naming rationale worth keeping: the panel pointer is `ref`, **not** `userData`,
 because a panel doesn't *hold* user data — it holds a *pointer into* it. Calling
 it `userData` would read as "this panel's data," the one thing it isn't.
 
-## 4. Key decisions and their rationale
+## 11. Key decisions and their rationale
 
 - **Explicit store API, not a `Proxy`.** `userData.set/update/remove` are the
   only mutation entry points. A Proxy would be more "transparent," but the whole
@@ -131,7 +229,7 @@ it `userData` would read as "this panel's data," the one thing it isn't.
   won't reproduce pixel-identically — relevant to "reach this exact screen"
   testing.
 
-## 5. Build phases (the journey, as shipped)
+## 12. Build phases (the journey, as shipped)
 
 Each phase was a branch → verified in headless Chrome → fast-forward-merged to
 `main` → pushed. Every phase left the app runnable.
@@ -147,7 +245,7 @@ Each phase was a branch → verified in headless Chrome → fast-forward-merged 
 | 5 | `554458f` | `Similex.history` — transaction-grouped, userData-scoped undo/redo; Edit menu + Ctrl/Cmd-Z |
 | 6 | `40ad6d6` | `actions.replay` + `onReplay`; Session menu; shared `Similex.files`; `workspace.panelById` |
 
-## 6. How it was verified (no test suite)
+## 13. How it was verified (no test suite)
 
 similex has **no automated tests, no build, no server** — it runs from `file://`.
 Each phase was checked by driving the real app in **headless Chrome**:
@@ -163,7 +261,7 @@ each phase, then was deleted. The CDP-over-websocket approach was blocked by the
 sandbox, hence the `--dump-dom` harness. Note: `node` is via **nvm** — `source
 ~/.nvm/nvm.sh` before `node`/`npm` in tool calls.
 
-## 7. Deferred — not started; do only if asked
+## 14. Deferred — not started; do only if asked
 
 1. **Interactive tutorial** — a consumer of the replay stream that tells the user
    the next step and checks they perform it.
@@ -172,7 +270,7 @@ sandbox, hence the `--dump-dom` harness. Note: `node` is via **nvm** — `source
 3. **Layout-scope undo** — flip `Similex.history.scope` to `'all'` so panel
    moves/opens/closes undo too (the seam exists).
 
-## 8. Restarting
+## 15. Restarting
 
 - Run it: open `index.html` (double-click or `google-chrome index.html`). No
   server/npm.
