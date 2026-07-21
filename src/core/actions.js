@@ -32,6 +32,18 @@
   var recording = true;
   var subscribers = []; // fn(entry) — observers of the dispatched stream
   var capture = null; // the changes[] currently being filled, or null
+  var replayHandlers = {}; // type -> fn(entry): how to re-perform an action
+
+  // Default replay for a data-changing entry: re-apply its captured values.
+  function applyChanges(entry) {
+    Similex.userData.batch(function () {
+      for (var i = 0; i < entry.changes.length; i++) {
+        var c = entry.changes[i];
+        if (c.value === undefined) Similex.userData.remove(c.ref);
+        else Similex.userData.set(c.ref, c.value);
+      }
+    });
+  }
 
   function notify(entry) {
     for (var i = 0; i < subscribers.length; i++) {
@@ -126,6 +138,76 @@
         return Math.max(m, ((e && e.seq) | 0) + 1);
       }, 0);
       return this;
+    },
+
+    /**
+     * Register how a given action type is re-performed during replay. App code
+     * registers layout handlers (panel.add opens a panel, etc.); any type
+     * without a handler falls back to re-applying its captured `changes` — which,
+     * thanks to `_watchModel`, also re-renders bound widgets. So model edits
+     * replay with no handler at all.
+     * @param {string} type
+     * @param {(entry: object) => (void|Promise)} fn
+     */
+    onReplay: function (type, fn) {
+      replayHandlers[type] = fn;
+      return this;
+    },
+
+    /**
+     * Re-perform a recorded log, in order. Recording is suppressed throughout,
+     * so replay neither re-logs nor feeds undo. Async (panel handlers load
+     * widgets); resolves when done.
+     *
+     * Note: replay assumes a clean starting state (clear the workspace/userData
+     * first) so freshly-minted panel ids line up with the recorded ones. It does
+     * not reconstruct actions that emit no per-item events (e.g. Clear workspace)
+     * or `panel.ref` changes.
+     *
+     * @param {object[]} [logToPlay] defaults to the current log
+     * @param {{ speed?: number, onStep?: (entry, i) => void }} [opts]
+     *   speed > 0 replays with the recorded time gaps divided by `speed`
+     *   (1 = real time); 0/omitted = as fast as possible.
+     * @returns {Promise<void>}
+     */
+    replay: function (logToPlay, opts) {
+      opts = opts || {};
+      var entries = (logToPlay || log).slice();
+      var speed = opts.speed || 0;
+      var onStep = opts.onStep;
+      var wasRecording = recording;
+      recording = false;
+
+      function delay(ms) {
+        return new Promise(function (res) {
+          setTimeout(res, ms > 0 ? ms : 0);
+        });
+      }
+
+      function step(i, prevTs) {
+        if (i >= entries.length) {
+          recording = wasRecording;
+          return Promise.resolve();
+        }
+        var entry = entries[i];
+        var wait =
+          speed > 0 && prevTs != null ? (entry.ts - prevTs) / speed : 0;
+        return delay(wait)
+          .then(function () {
+            var handler = replayHandlers[entry.type];
+            if (handler) return handler(entry);
+            if (entry.changes && entry.changes.length) applyChanges(entry);
+          })
+          .then(function () {
+            if (typeof onStep === 'function') onStep(entry, i);
+            return step(i + 1, entry.ts);
+          });
+      }
+
+      return step(0, null).catch(function (e) {
+        recording = wasRecording;
+        throw e;
+      });
     },
   };
 })(window.Similex);

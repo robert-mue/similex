@@ -31,6 +31,47 @@
     app.addPanel({ title: m.name || ref, widget: 'counter', ref: ref });
   }
 
+  // --- Replay: teach the action layer how to re-perform layout actions.
+  // (Model edits need no handler — replay re-applies their captured changes,
+  // and _watchModel re-renders the bound widgets.)
+  function byId(id) {
+    return app.$workspace.workspace('panelById', id);
+  }
+  Similex.actions.onReplay('panel.add', function (e) {
+    return app.addPanel({
+      title: e.payload.title,
+      widget: e.payload.widget || undefined,
+      ref: e.payload.ref || '',
+    });
+  });
+  Similex.actions.onReplay('panel.close', function (e) {
+    var $p = byId(e.target);
+    if ($p) $p.panel('close');
+  });
+  function replayGeometry(e) {
+    var $p = byId(e.target);
+    if ($p) $p.panel('setGeometry', e.payload);
+  }
+  Similex.actions.onReplay('panel.move', replayGeometry);
+  Similex.actions.onReplay('panel.resize', replayGeometry);
+  Similex.actions.onReplay('panel.minimize', function (e) {
+    var $p = byId(e.target);
+    if ($p) $p.panel('minimize', !!e.payload.minimized);
+  });
+  Similex.actions.onReplay('panel.maximize', function (e) {
+    var $p = byId(e.target);
+    if ($p) $p.panel('maximize', !!e.payload.maximized);
+  });
+
+  // Replay the recorded session onto a clean slate (destroys current state).
+  function replaySession() {
+    var session = Similex.actions.log();
+    app.clearWorkspace();
+    Similex.userData.clear();
+    Similex.history.clear();
+    Similex.actions.replay(session);
+  }
+
   // File ▸ Open lists the current models; empty => a single inert placeholder.
   function openItems() {
     var list = models.list();
@@ -86,6 +127,26 @@
         ],
       },
       { label: 'Widgets', items: widgetItems },
+      {
+        label: 'Session',
+        items: [
+          { label: 'Replay', onSelect: replaySession },
+          {
+            label: 'Export log',
+            onSelect: function () {
+              Similex.files.download('similex-log.json', Similex.actions.toJSON());
+            },
+          },
+          {
+            label: 'Import log',
+            onSelect: function () {
+              Similex.files.pickFile(function (arr) {
+                Similex.actions.fromJSON(arr);
+              });
+            },
+          },
+        ],
+      },
       {
         label: 'View',
         items: [

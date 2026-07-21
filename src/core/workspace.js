@@ -137,6 +137,12 @@ $.widget('similex.workspace', {
     return this._entries.map((e) => e.$panel);
   },
 
+  /** @returns {?JQuery} the open panel with this id, or null */
+  panelById(id) {
+    const entry = this._entries.find((e) => e.$panel.panel('id') === id);
+    return entry ? entry.$panel : null;
+  },
+
   /**
    * Snapshot every panel (widget, title, id, ref, merged options + widget
    * state, geometry, min/max flags) as a plain, JSON-serialisable array.
@@ -192,6 +198,10 @@ $.widget('similex.workspace', {
       this._clearing = false;
     }
     this._entries = [];
+    // Reset id minting: with no live panels there's nothing to collide with, and
+    // starting from 'p0' again lets a replay's panels line up with recorded ids.
+    // (restore() re-seeds the counter past any ids it restores.)
+    this._idCounter = 0;
   },
 
   /** Cascade panels so a fresh one is offset from the last. */

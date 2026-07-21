@@ -9,11 +9,11 @@
  * localStorage is the live, autosaved store (via userData), so there is no
  * "Save" — durability is continuous. This layer adds model *lifecycle* (new,
  * copy, remove, rename), a notion of the *current* model, and *file*
- * import/export (Blob download + <input type=file>, because file:// forbids
- * silent writes). The DOM I/O sits in `_download`/`_pickFile` so tests can stub
- * them.
+ * import/export via the shared `Similex.files` helpers (Blob download +
+ * <input type=file>, because file:// forbids silent writes).
  *
- * Classic script, plain JS. Load after `user-data.js`, before `main.js`.
+ * Classic script, plain JS. Load after `user-data.js` and `files.js`, before
+ * `main.js`.
  */
 (function (Similex) {
   'use strict';
@@ -104,12 +104,12 @@
       var m = U.get(ref);
       if (!m) return;
       var name = (m.name || ref.replace(/\//g, '-')) + '.json';
-      this._download(name, U.toJSON(ref));
+      Similex.files.download(name, U.toJSON(ref));
     },
 
     /** Pick a .json file and load it as a new model (fresh id); becomes current. */
     importFile: function () {
-      this._pickFile(function (obj) {
+      Similex.files.pickFile(function (obj) {
         if (!obj || typeof obj !== 'object') return;
         var id = mintId();
         obj.id = id;
@@ -121,58 +121,16 @@
 
     /** Download the whole userData store. */
     exportAll: function () {
-      this._download('similex-userData.json', U.toJSON('') || {});
+      Similex.files.download('similex-userData.json', U.toJSON('') || {});
     },
 
     /** Pick a .json file and replace the whole userData store. */
     importAll: function () {
-      this._pickFile(function (obj) {
+      Similex.files.pickFile(function (obj) {
         if (!obj || typeof obj !== 'object') return;
         U.fromJSON('', obj);
         current = null;
       });
-    },
-
-    // ---- DOM I/O (overridable for tests) ----
-
-    _download: function (filename, obj) {
-      try {
-        var blob = new Blob([JSON.stringify(obj, null, 2)], {
-          type: 'application/json',
-        });
-        var url = URL.createObjectURL(blob);
-        var a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(function () {
-          URL.revokeObjectURL(url);
-        }, 0);
-      } catch (e) {
-        /* download unavailable — ignore */
-      }
-    },
-
-    _pickFile: function (cb) {
-      var input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'application/json,.json';
-      input.addEventListener('change', function () {
-        var file = input.files && input.files[0];
-        if (!file) return;
-        var reader = new FileReader();
-        reader.onload = function () {
-          try {
-            cb(JSON.parse(String(reader.result)));
-          } catch (e) {
-            /* bad file — ignore */
-          }
-        };
-        reader.readAsText(file);
-      });
-      input.click();
     },
   };
 })(window.Similex);
