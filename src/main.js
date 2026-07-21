@@ -25,6 +25,12 @@
     };
   });
 
+  // Open a panel viewing a model (the counter is the model-bound pilot widget).
+  function openModel(ref) {
+    var m = models.get(ref) || {};
+    app.addPanel({ title: m.name || ref, widget: 'counter', ref: ref });
+  }
+
   // File ▸ Open lists the current models; empty => a single inert placeholder.
   function openItems() {
     var list = models.list();
@@ -34,6 +40,7 @@
         label: m.name,
         onSelect: function () {
           models.setCurrent(m.ref);
+          openModel(m.ref);
         },
       };
     });
@@ -41,7 +48,12 @@
 
   function fileItems() {
     return [
-      { label: 'New', onSelect: function () { models.create(); } },
+      {
+        label: 'New',
+        onSelect: function () {
+          openModel(models.create());
+        },
+      },
       { label: 'Open', items: openItems() },
       {
         label: 'Save As',
@@ -83,9 +95,20 @@
 
   app.setMenu(buildMenu());
 
-  // Rebuild the menu whenever the set of models changes, so File ▸ Open stays
-  // in sync. (Cheap: the menu is small and re-rendered from config.)
+  // Rebuild the menu only when the *set* of models (ids/names) changes, so a
+  // model's contents changing (e.g. a bound counter's count) doesn't rebuild it.
+  function modelsSignature() {
+    return JSON.stringify(
+      models.list().map(function (m) {
+        return [m.id, m.name];
+      }),
+    );
+  }
+  var lastSignature = modelsSignature();
   Similex.userData.subscribe('models', function () {
+    var sig = modelsSignature();
+    if (sig === lastSignature) return;
+    lastSignature = sig;
     app.setMenu(buildMenu());
   });
 

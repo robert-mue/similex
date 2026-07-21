@@ -1,10 +1,17 @@
 /**
- * `similex.counter` — increment/decrement counter, emits a `counterchange`
- * event whenever the value changes.
+ * `similex.counter` — increment/decrement counter, and the pilot for the
+ * `$.similex.widgetBase` model-binding contract.
+ *
+ * When the host panel has a `ref` (opened via File ▸ New / Open) the count lives
+ * in that model at `<ref>/count`, so it persists via userData and is shared by
+ * any panel viewing the same model. When unbound (opened via the Widgets menu)
+ * it keeps a local count persisted through the panel's `state()`/options, as
+ * before. Either way each bump is dispatched as a logged `counter.change`
+ * action, so the change is captured for the log and (bound) for undo.
  *
  * Classic script, injected on demand by the widget registry.
  */
-$.widget('similex.counter', {
+$.widget('similex.counter', $.similex.widgetBase, {
   options: {
     start: 0,
     step: 1,
@@ -12,7 +19,7 @@ $.widget('similex.counter', {
 
   _create() {
     this.element.addClass('slx-counter');
-    this._count = this.options.start;
+    this._count = this._bound() ? this._readModel() : this.options.start;
 
     this._valueEl = $('<span class="slx-counter-value">').appendTo(
       this.element,
@@ -38,13 +45,26 @@ $.widget('similex.counter', {
     return this._count;
   },
 
-  /** Serialisable state for persistence (restored via the `start` option). */
+  /**
+   * View state for persistence. Bound: the count lives in the model (userData),
+   * so nothing to store here. Unbound: persist the count via the `start` option.
+   */
   state() {
-    return { start: this._count };
+    return this._bound() ? {} : { start: this._count };
+  },
+
+  /** Read the count from the model, defaulting to the `start` option. */
+  _readModel() {
+    const v = this._get('count');
+    return typeof v === 'number' ? v : this.options.start;
   },
 
   _bump(delta) {
-    this._count += delta;
+    this._action('change', { delta }, () => {
+      const base = this._bound() ? this._readModel() : this._count;
+      this._count = base + delta;
+      if (this._bound()) this._set('count', this._count);
+    });
     this._render();
     this._trigger('change', null, { value: this._count });
   },
